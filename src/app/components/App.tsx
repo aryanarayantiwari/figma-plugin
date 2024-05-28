@@ -1,47 +1,40 @@
 import React from 'react';
-import logo from '../assets/logo.svg';
 import '../styles/ui.css';
+import { useState, useEffect } from 'react';
 
-function App() {
-  const textbox = React.useRef<HTMLInputElement>(undefined);
+const App: React.FC = () => {
+  const [properties, setProperties] = useState<any>(null);
 
-  const countRef = React.useCallback((element: HTMLInputElement) => {
-    if (element) element.value = '5';
-    textbox.current = element;
-  }, []);
-
-  const onCreate = () => {
-    const count = parseInt(textbox.current.value, 10);
-    parent.postMessage({ pluginMessage: { type: 'create-rectangles', count } }, '*');
-  };
-
-  const onCancel = () => {
-    parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
-  };
-
-  React.useEffect(() => {
-    // This is how we read messages sent from the plugin controller
+  useEffect(() => {
     window.onmessage = (event) => {
-      const { type, message } = event.data.pluginMessage;
-      if (type === 'create-rectangles') {
-        console.log(`Figma Says: ${message}`);
+      const message = event.data.pluginMessage;
+      if (message.type === 'selection') {
+        setProperties(message.properties);
+      } else if (message.type === 'no-selection') {
+        setProperties(null);
       }
     };
   }, []);
 
+  const copyToClipboard = () => {
+    const json = JSON.stringify(properties, null, 2);
+    navigator.clipboard.writeText(json);
+    alert('Copied to clipboard!');
+  };
+
   return (
     <div>
-      <img src={logo} />
-      <h2>Rectangle Creator</h2>
-      <p>
-        Count: <input ref={countRef} />
-      </p>
-      <button id="create" onClick={onCreate}>
-        Create
-      </button>
-      <button onClick={onCancel}>Cancel</button>
+      <h2>Component Properties</h2>
+      {properties ? (
+        <div>
+          <pre>{JSON.stringify(properties, null, 2)}</pre>
+          <button onClick={copyToClipboard}>Copy to Clipboard</button>
+        </div>
+      ) : (
+        <p>No component selected</p>
+      )}
     </div>
   );
-}
+};
 
 export default App;
