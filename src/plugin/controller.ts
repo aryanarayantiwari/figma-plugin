@@ -1,4 +1,4 @@
-figma.showUI(__html__);
+figma.showUI(__html__, { width: 600, height: 600 });
 
 function hasFills(node: SceneNode): node is GeometryMixin & SceneNode {
   return 'fills' in node && !!node.fills;
@@ -20,18 +20,32 @@ function hasCornerRadius(node: SceneNode): node is (RectangleNode & SceneNode) |
   return 'cornerRadius' in node;
 }
 
-figma.on('selectionchange', () => {
-  const selection = figma.currentPage.selection;
-  if (selection.length === 0) {
-    figma.ui.postMessage({ type: 'no-selection' });
-  } else {
-    const node = selection[0];
-    let view = {};
-    let layer = {};
+function getTextProperties(node: TextNode) {
+  const fills = node.fills as Paint[];
+  const fill = fills[0];
+  return {
+    id: node.id,
+    theme_id: '5', // Placeholder, replace with actual theme_id as needed
+    font_style_name: node.name.trim().replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, ''),
+    attributes: JSON.stringify({
+      font_size: node.fontSize,
+      font_color: fill.type === 'SOLID' ? `#${Math.floor(fill.color.r * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.g * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.b * 255).toString(16).padStart(2, '0')}` : null,
+      textAlignment: node.textAlignHorizontal.toLowerCase(),
+      letterSpacing: node.letterSpacing.valueOf,
+      lineHeight: node.lineHeight.valueOf
+    }),
+    lang_code: 'en'
+  };
+}
+
+function getColorProperties(node: SceneNode) {
+  let view = {};
+  let layer = {};
+  let custom = {};
 
     if (hasFills(node)) {
       view = {
-        backgroundColor: node.fills[0]?.type === 'SOLID' ? `#${Math.floor(node.fills[0].color.r * 255).toString(16)}${Math.floor(node.fills[0].color.g * 255).toString(16)}${Math.floor(node.fills[0].color.b * 255).toString(16)}` : 'none',
+        backgroundColor: node.fills[0]?.type === 'SOLID' ? `#${Math.floor(node.fills[0].color.r * 255).toString(16)}${Math.floor(node.fills[0].color.g * 255).toString(16)}${Math.floor(node.fills[0].color.b * 255).toString(16)}` : null,
         alpha: hasOpacity(node) ? node.opacity : 1,
         clipsToBounds: 'clipsContent' in node ? node.clipsContent : false,
         tintColor: hasStrokes(node) && node.strokes[0]?.type === 'SOLID' ? `#${Math.floor(node.strokes[0].color.r * 255).toString(16)}${Math.floor(node.strokes[0].color.g * 255).toString(16)}${Math.floor(node.strokes[0].color.b * 255).toString(16)}` : null
@@ -46,23 +60,138 @@ figma.on('selectionchange', () => {
         // shadowOpacity: hasEffects(node) && node.effects[0]?.type === 'DROP_SHADOW' ? node.effects[0].opacity : 1,
         shadowRadius: hasEffects(node) && node.effects[0]?.type === 'DROP_SHADOW' ? node.effects[0].radius : 0,
         borderWidth: 'strokeWeight' in node ? node.strokeWeight : 0,
-        borderColor: hasStrokes(node) && node.strokes[0]?.type === 'SOLID' ? `#${Math.floor(node.strokes[0].color.r * 255).toString(16)}${Math.floor(node.strokes[0].color.g * 255).toString(16)}${Math.floor(node.strokes[0].color.b * 255).toString(16)}` : 'none',
+        borderColor: hasStrokes(node) && node.strokes[0]?.type === 'SOLID' ? `#${Math.floor(node.strokes[0].color.r * 255).toString(16)}${Math.floor(node.strokes[0].color.g * 255).toString(16)}${Math.floor(node.strokes[0].color.b * 255).toString(16)}` : null,
         opacity: hasOpacity(node) ? node.opacity : 1,
         shouldRasterize: false,
         maskedCorners: null,
-        isRadiusByWidth: false,
-        isRadiusByPercent: true
+        isRadiusByWidth: node.type === 'RECTANGLE' && (typeof(node.cornerRadius) == "number" && node.cornerRadius.valueOf() > 20) ? false : true,
+        isRadiusByPercent: node.type === 'RECTANGLE' && (typeof(node.cornerRadius) == "number" && node.cornerRadius.valueOf() > 20) ? true : false
       };
     }
 
-    const properties = { view, layer, custom: {} };
-    figma.ui.postMessage({ type: 'selection', properties });
-    console.log(node)
-  }
-});
+    if (hasFills(node)) {
+        const startPoint = { x:  node.fills[0].gradientTransform[0][2], y: node.fills[0].gradientTransform[1][2] };
+        const endPoint = {
+          x: node.fills[0].gradientTransform[0][0] + node.fills[0].gradientTransform[0][2],
+          y: node.fills[0].gradientTransform[1][1] + node.fills[0].gradientTransform[1][2]
+        };
+      custom  = {
+        gradient: {
+          gradientColors: node.fills[0].gradientStops.map(item => `#${Math.floor(item.color.r * 255).toString(16)}${Math.floor(item.color.g * 255).toString(16)}${Math.floor(item.color.b * 255).toString(16)}`),
+          gradientLocations: node.fills[0].gradientStops.map(item => item.position),
+          startPoint: startPoint,
+          endPoint:endPoint
+        }
+      };
+    }
+    return {
+      id: node.id,
+      theme_id: '5', // Placeholder, replace with actual theme_id as needed
+      color_style_name: node.name.trim().replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, ''),
+      attributes: JSON.stringify({
+        view,
+        layer,
+        custom
+      }),
+      lang_code: 'en'
+    };
+}
 
 figma.ui.onmessage = (msg) => {
+  if (msg.type === 'style-change') {
+    const selection = figma.currentPage.selection;
+    let styleProperties = [];
+
+    if (msg.style === 'font') {
+      if (selection[0].type === 'FRAME') {
+        styleProperties = selection[0].children.filter(node => node.type === 'TEXT').map(node => getTextProperties(node as TextNode));
+      } 
+      else {
+        styleProperties = selection.filter(node => node.type === 'TEXT').map(node => getTextProperties(node as TextNode));
+        console.log(typeof(styleProperties))
+      }
+      figma.ui.postMessage({ type: 'text-properties', styleProperties });
+      } else if (msg.style === 'color') {
+      styleProperties = selection.filter(node => node.type === 'FRAME').map(getColorProperties);
+    }
+
+    figma.ui.postMessage({ type: 'style-properties', styleProperties });
+  }
+
   if (msg.type === 'close-plugin') {
     figma.closePlugin();
   }
 };
+
+// figma.showUI(__html__, { width: 600, height: 600 });
+
+// function traverseNode(node: SceneNode, textNodes: TextNode[] = []): TextNode[] {
+//   if (node.type === 'TEXT') {
+//     textNodes.push(node);
+//   } else if ('children' in node) {
+//     for (const child of node.children) {
+//       traverseNode(child, textNodes);
+//     }
+//   }
+//   return textNodes;
+// }
+
+// figma.on('selectionchange', () => {
+//   const selection = figma.currentPage.selection;
+
+//   if (selection.length === 0) {
+//     figma.ui.postMessage({ type: 'no-selection' });
+//   } else {
+//     const textNodes = selection.flatMap(node => traverseNode(node));
+
+//     const colors = {
+//       systemWhite: 'System White',
+//       brandPrimary: 'Brand Primary', // Replace with actual Brand Primary color
+//       brandSecondary: 'Brand Secondary' // Replace with actual Brand Secondary color
+//     };
+
+//     const alignments = ['left', 'center', 'right'];
+
+//     const textProperties = textNodes.flatMap(node => {
+//       const fontName = node.name.trim().replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, '');
+//       const baseFontName = camelize(fontName);
+//       // const fills = node.fills as Paint[];
+//       // const fill = fills[0];
+//       // const baseColor = fill.type === 'SOLID' ? `#${Math.floor(fill.color.r * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.g * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.b * 255).toString(16).padStart(2, '0')}` : null;
+
+//       return alignments.flatMap(alignment => {
+//         return Object.entries(colors).map(([colorName, colorValue]) => {
+//           return {
+//             id: node.id,
+//             theme_id: '5', // Placeholder, replace with actual theme_id as needed
+//             font_style_name: `${baseFontName}${colorName.charAt(0).toUpperCase() + colorName.slice(1)}${alignment.charAt(0).toUpperCase() + alignment.slice(1)}`,
+//             attributes: JSON.stringify({
+//               font_size: node.fontSize,
+//               font_color: colorValue,
+//               textAlignment: alignment,
+//               letterSpacing: node.letterSpacing.valueOf,
+//               lineHeight: node.lineHeight.valueOf
+//             }),
+//             lang_code: 'en'
+//           };
+//         });
+//       });
+//     });
+
+//     figma.ui.postMessage({ type: 'text-properties', textProperties });
+//   }
+// });
+
+// figma.ui.onmessage = (msg) => {
+//   if (msg.type === 'close-plugin') {
+//     figma.closePlugin();
+//   }
+// };
+
+// // Helper function to camelCase the font style name
+// function camelize(str: string): string {
+//   return str.replace(/(?:^\w|[A-Z]|\b\w|\s+)/g, function(match, index) {
+//     if (+match === 0) return ""; // or if (/\s+/.test(match)) for white spaces
+//     return index === 0 ? match.toLowerCase() : match.toUpperCase();
+//   });
+// }
