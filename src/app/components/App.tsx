@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 const App = () => {
   const [sqlQueries, setSqlQueries] = useState([]);
+  var arraySql = []
   const [selectedStyle, setSelectedStyle] = useState(''); // Default to 'font'
 
   useEffect(() => {
@@ -11,7 +12,7 @@ const App = () => {
       if (message.type === 'style-properties') {
         const styleProperties = message.styleProperties;
         const sqlQueries = styleProperties.map(generateSQLInsertQuery);
-        setSqlQueries(sqlQueries);
+        setSqlQueries(arraySql)
       }
     };
 
@@ -26,10 +27,9 @@ const App = () => {
       console.log('Message from Figma plugin:', message);
 
       if (message && message.type === 'text-properties') {
-        const textProperties = message.styleProperties;
-        console.log(textProperties)
-        const sqlQueries = textProperties.map(generateSQLInsertQuery);
-        setSqlQueries(sqlQueries);
+        const properties = message.styleProperties;
+        const textProperties = properties.map((item) => item.map(generateSQLInsertQuery))
+        setSqlQueries(textProperties);
       } else {
         console.error('Received invalid text properties:', message.textProperties);
       }
@@ -42,9 +42,16 @@ const App = () => {
   }, [selectedStyle]);
 
   const generateSQLInsertQuery = (props) => {
-    console.log(props)
-    // console.log(props.type)
-    return `INSERT INTO font_style (theme_id, font_style_name, attributes, lang_code) VALUES ('${props.theme_id}', '${props.font_style_name}', '${props.attributes}', '${props.lang_code}');`;
+    console.log(`propssssss => ${props.theme_id}`)
+    if (props.theme_id == undefined) {
+      return
+    } else {
+      let query = `INSERT INTO font_style (theme_id, font_style_name, attributes, lang_code) VALUES ('${props.theme_id}', '${props.font_style_name}', '${props.attributes}', '${props.lang_code}');`;
+      console.log(`query -> ${query}`)
+      setSqlQueries[query]
+      arraySql.push(query)
+    }
+    // return `INSERT INTO font_style (theme_id, font_style_name, attributes, lang_code) VALUES ('${props.theme_id}', '${props.font_style_name}', '${props.attributes}', '${props.lang_code}');`;
   };
 
   const clearAll = () => {

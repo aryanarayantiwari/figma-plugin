@@ -20,23 +20,77 @@ function hasCornerRadius(node: SceneNode): node is (RectangleNode & SceneNode) |
   return 'cornerRadius' in node;
 }
 
+function roundToTwoDecimals(num: number): number {
+  return Math.round(num * 100) / 100;
+}
+
+const colors = {
+  systemWhite: 'System White',
+  brandPrimary: 'Brand Primary',
+  brandSecondary: 'Brand Secondary'
+};
+
+const alignments = ['left', 'center', 'right'];
+
 function getTextProperties(node: TextNode) {
   const fills = node.fills as Paint[];
   const fill = fills[0];
-  return {
+  const baseFontName = node.name.trim().replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, '');
+
+  const baseProperties = {
     id: node.id,
     theme_id: '5', // Placeholder, replace with actual theme_id as needed
-    font_style_name: node.name.trim().replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, ''),
-    attributes: JSON.stringify({
-      font_size: node.fontSize,
-      font_color: fill.type === 'SOLID' ? `#${Math.floor(fill.color.r * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.g * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.b * 255).toString(16).padStart(2, '0')}` : null,
-      textAlignment: node.textAlignHorizontal.toLowerCase(),
-      letterSpacing: node.letterSpacing.valueOf,
-      lineHeight: node.lineHeight.valueOf
-    }),
-    lang_code: 'en'
+    font_size: node.fontSize,
+    baseColor: fill.type === 'SOLID' ? `#${Math.floor(fill.color.r * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.g * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.b * 255).toString(16).padStart(2, '0')}` : null,
+    letterSpacing: node.letterSpacing.valueOf,
+    lineHeight: node.lineHeight.valueOf
   };
+
+  return alignments.flatMap(alignment => {
+    return Object.entries(colors).map(([colorName, colorValue]) => {
+      return {
+        id: baseProperties.id,
+        theme_id: baseProperties.theme_id,
+        font_style_name: `${camelize(baseFontName)}${colorName.charAt(0).toUpperCase() + colorName.slice(1)}${alignment.charAt(0).toUpperCase() + alignment.slice(1)}`,
+        attributes: JSON.stringify({
+          font_size: baseProperties.font_size,
+          font_color: colorValue,
+          textAlignment: alignment,
+          letterSpacing: baseProperties.letterSpacing,
+          lineHeight: baseProperties.lineHeight
+        }),
+        lang_code: 'en'
+      };
+    });
+  });
 }
+
+function camelize(str: string): string {
+  return str.replace(/(?:^\w|[A-Z]|\b\w|\s+)/g, function(match, index) {
+    if (+match === 0) return ""; // or if (/\s+/.test(match)) for white spaces
+    return index === 0 ? match.toLowerCase() : match.toUpperCase();
+  });
+}
+
+
+
+// function getTextProperties(node: TextNode) {
+//   const fills = node.fills as Paint[];
+//   const fill = fills[0];
+//   return {
+//     id: node.id,
+//     theme_id: '5', // Placeholder, replace with actual theme_id as needed
+//     font_style_name: node.name.trim().replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, ''),
+//     attributes: JSON.stringify({
+//       font_size: node.fontSize,
+//       font_color: fill.type === 'SOLID' ? `#${Math.floor(fill.color.r * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.g * 255).toString(16).padStart(2, '0')}${Math.floor(fill.color.b * 255).toString(16).padStart(2, '0')}` : null,
+//       textAlignment: node.textAlignHorizontal.toLowerCase(),
+//       letterSpacing: node.letterSpacing.valueOf,
+//       lineHeight: node.lineHeight.valueOf
+//     }),
+//     lang_code: 'en'
+//   };
+// }
 
 function getColorProperties(node: SceneNode) {
   let view = {};
@@ -70,11 +124,15 @@ function getColorProperties(node: SceneNode) {
     }
 
     if (hasFills(node)) {
-        const startPoint = { x:  node.fills[0].gradientTransform[0][2], y: node.fills[0].gradientTransform[1][2] };
-        const endPoint = {
+        let startPoint = { x:  node.fills[0].gradientTransform[0][2], y: node.fills[0].gradientTransform[1][2] };
+        let endPoint = {
           x: node.fills[0].gradientTransform[0][0] + node.fills[0].gradientTransform[0][2],
           y: node.fills[0].gradientTransform[1][1] + node.fills[0].gradientTransform[1][2]
         };
+        startPoint.x = roundToTwoDecimals(startPoint.x)
+        startPoint.y = roundToTwoDecimals(startPoint.y)
+        endPoint.x = roundToTwoDecimals(endPoint.x)
+        endPoint.y = roundToTwoDecimals(endPoint.y)
       custom  = {
         gradient: {
           gradientColors: node.fills[0].gradientStops.map(item => `#${Math.floor(item.color.r * 255).toString(16)}${Math.floor(item.color.g * 255).toString(16)}${Math.floor(item.color.b * 255).toString(16)}`),
