@@ -30,6 +30,7 @@ const App = () => {
         const properties = message.styleProperties;
         const textProperties = properties.map((item) => item.map(generateSQLInsertQuery))
         setSqlQueries(textProperties);
+        console.log(`Text -> properties ${properties}`)
       } else {
         console.error('Received invalid text properties:', message.textProperties);
       }
@@ -42,7 +43,6 @@ const App = () => {
   }, [selectedStyle]);
 
   const generateSQLInsertQuery = (props) => {
-    console.log(`propssssss => ${props.theme_id}`)
     if (props.theme_id == undefined) {
       return
     } else {

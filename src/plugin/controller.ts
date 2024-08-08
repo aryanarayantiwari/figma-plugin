@@ -123,25 +123,47 @@ function getColorProperties(node: SceneNode) {
       };
     }
 
-    if (hasFills(node)) {
-        let startPoint = { x:  node.fills[0].gradientTransform[0][2], y: node.fills[0].gradientTransform[1][2] };
-        let endPoint = {
-          x: node.fills[0].gradientTransform[0][0] + node.fills[0].gradientTransform[0][2],
-          y: node.fills[0].gradientTransform[1][1] + node.fills[0].gradientTransform[1][2]
-        };
-        startPoint.x = roundToTwoDecimals(startPoint.x)
-        startPoint.y = roundToTwoDecimals(startPoint.y)
-        endPoint.x = roundToTwoDecimals(endPoint.x)
-        endPoint.y = roundToTwoDecimals(endPoint.y)
-      custom  = {
-        gradient: {
-          gradientColors: node.fills[0].gradientStops.map(item => `#${Math.floor(item.color.r * 255).toString(16)}${Math.floor(item.color.g * 255).toString(16)}${Math.floor(item.color.b * 255).toString(16)}`),
-          gradientLocations: node.fills[0].gradientStops.map(item => item.position),
-          startPoint: startPoint,
-          endPoint:endPoint
-        }
-      };
-    }
+ /// GRADIENT SPECIFIC
+      // if (!hasFills(node)) { return };
+    
+      // const fill = (node.fills as Paint[])[0];
+    
+      // if (fill?.type !== 'GRADIENT_LINEAR') return;
+    
+      // const gradientTransform = fill?.gradientTransform;
+      // const gradientStops = fill?.gradientStops;
+    
+      // if (!gradientTransform || !gradientStops) return;
+    
+      // const startPoint = {
+      //   x: roundToTwoDecimals(gradientTransform[0][2]),
+      //   y: roundToTwoDecimals(gradientTransform[1][2]),
+      // };
+    
+      // const endPoint = {
+      //   x: roundToTwoDecimals(gradientTransform[0][0] + gradientTransform[0][2]),
+      //   y: roundToTwoDecimals(gradientTransform[1][1] + gradientTransform[1][2]),
+      // };
+    
+      // const gradientColors = gradientStops.map(item =>
+      //   `#${Math.floor(item.color.r * 255).toString(16).padStart(2, '0')}${Math.floor(item.color.g * 255).toString(16).padStart(2, '0')}${Math.floor(item.color.b * 255).toString(16).padStart(2, '0')}`
+      // );
+    
+      // const gradientLocations = gradientStops.map(item => item.position);
+    
+      // custom = {
+      //   gradient: {
+      //     gradientColors,
+      //     gradientLocations,
+      //     startPoint,
+      //     endPoint,
+      //   },
+      // };
+
+    
+    
+    
+
     return {
       id: node.id,
       theme_id: '5', // Placeholder, replace with actual theme_id as needed
@@ -153,6 +175,7 @@ function getColorProperties(node: SceneNode) {
       }),
       lang_code: 'en'
     };
+    console.log(custom)
 }
 
 figma.ui.onmessage = (msg) => {
@@ -166,11 +189,12 @@ figma.ui.onmessage = (msg) => {
       } 
       else {
         styleProperties = selection.filter(node => node.type === 'TEXT').map(node => getTextProperties(node as TextNode));
-        console.log(typeof(styleProperties))
+        // console.log(typeof(styleProperties))
       }
       figma.ui.postMessage({ type: 'text-properties', styleProperties });
       } else if (msg.style === 'color') {
       styleProperties = selection.filter(node => node.type === 'FRAME').map(getColorProperties);
+      console.log(styleProperties)
     }
 
     figma.ui.postMessage({ type: 'style-properties', styleProperties });
