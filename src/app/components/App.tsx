@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 
 const App = () => {
   const [sqlQueries, setSqlQueries] = useState([]);
+  const [jsonItems, setJsonItems] = useState([]);
   var arraySql = []
+  var arrayJSON = []
   const [selectedStyle, setSelectedStyle] = useState(''); // Default to 'font'
 
   useEffect(() => {
@@ -10,9 +12,10 @@ const App = () => {
       const message = event.data.pluginMessage;
 
       if (message.type === 'style-properties') {
-        const styleProperties = message.styleProperties;
-        const sqlQueries = styleProperties.map(generateSQLInsertQuery);
+        // const styleProperties = message.styleProperties;
+        // const sqlQueries = styleProperties.map(generateSQLInsertQuery);
         setSqlQueries(arraySql)
+        setJsonItems(arrayJSON)
       }
     };
 
@@ -29,7 +32,9 @@ const App = () => {
       if (message && message.type === 'text-properties') {
         const properties = message.styleProperties;
         const textProperties = properties.map((item) => item.map(generateSQLInsertQuery))
+        const jsonProperties = properties.map((item) => item.map(generateJSONItems))
         setSqlQueries(textProperties);
+        setJsonItems(jsonProperties)
         console.log(`Text -> properties ${properties}`)
       } else {
         console.error('Received invalid text properties:', message.textProperties);
@@ -54,11 +59,25 @@ const App = () => {
     // return `INSERT INTO font_style (theme_id, font_style_name, attributes, lang_code) VALUES ('${props.theme_id}', '${props.font_style_name}', '${props.attributes}', '${props.lang_code}');`;
   };
 
+  const generateJSONItems = (props) => {
+    if (props.theme_id == undefined) {
+      return
+    } else {
+      let query = `${props.attributes}`;
+      console.log(`query -> ${query}`)
+      setJsonItems[query]
+      arrayJSON.push(query)
+    }
+    // return `INSERT INTO font_style (theme_id, font_style_name, attributes, lang_code) VALUES ('${props.theme_id}', '${props.font_style_name}', '${props.attributes}', '${props.lang_code}');`;
+  };
+
   const clearAll = () => {
     setSqlQueries([])
+    setJsonItems([])
   }
   const copyToClipboard = () => {
     const combinedQueries = sqlQueries.join('\n');
+    // const combinedJsonItems = jsonItems.join('\n')
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(combinedQueries).then(() => {
@@ -116,6 +135,11 @@ const App = () => {
       <textarea 
         id='textbox'
         value={sqlQueries.join('\n')}  
+        style={{ width: '100%', height: '200px', marginTop: '10px' }}
+      />
+      <textarea 
+        id='textbox2'
+        value={jsonItems.join('\n')}  
         style={{ width: '100%', height: '200px', marginTop: '10px' }}
       />
       <button onClick={copyToClipboard} style={{ marginTop: '10px' }}>Copy to Clipboard</button>
